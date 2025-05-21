@@ -5,7 +5,7 @@
 //     URL: https://github.com/RobTillaart/HX711
 
 
-#include "HX711.h"
+#include <HX711.h>
 
 HX711 myScale;
 
