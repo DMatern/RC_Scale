@@ -1,22 +1,14 @@
-#include <HX711.h>
+// #include <HX711.h>
 
-HX711 scale0; // Left Front
-HX711 scale1; // Right Front
-HX711 scale2; // Right Rear
-HX711 scale3; // Left Rear
+// HX711 scale0; // Left Front
+// HX711 scale1; // Right Front
+// HX711 scale2; // Right Rear
+// HX711 scale3; // Left Rear
 
-HX711 scales[4] = {scale0, scale1, scale2, scale3};
+// HX711 scales[4] = {scale0, scale1, scale2, scale3};
 
-const uint8_t dataPin[4] = {5, 4, 3, 2};
-const uint8_t clockPin = 6;
-
-//  TODO you need to adjust to your calibrated scale values
-// float calib[4] = {420.0983, 421.365, 419.200, 410.236};
-
-// uint32_t count = 0;
-
-// unsigned long lastScaleUpdate = 0;
-// const unsigned long scaleUpdateInterval = 250;
+// const uint8_t dataPin[4] = {5, 4, 3, 2};
+// const uint8_t clockPin = 6;
 
 void calibrate(HX711 &myScale);
 
@@ -28,7 +20,7 @@ void setup()
 {
   Serial.begin(115200);
   Serial.println(__FILE__);
-  Serial.print("HX711_LIB_VERSION: ");
+  Serial.print(F("HX711_LIB_VERSION: "));
   Serial.println(HX711_LIB_VERSION);
   Serial.println();
 
@@ -36,24 +28,23 @@ void setup()
   for (int i = 0; i < 4; i++)
   {
     scales[i].begin(dataPin[i], clockPin);
-    delay(100); // Give time for HX711 to power up
+    delay(250); // Give time for HX711 to power up
 
     if (scales[i].is_ready())
     {
-      Serial.print("Scale ");
+      Serial.print(F("Scale "));
       Serial.print(i);
-      Serial.println(" ready.");
+      Serial.println(F(" ready."));
     }
     else
     {
-      Serial.print("Scale ");
+      Serial.print(F("Scale "));
       Serial.print(i);
-      Serial.println(" NOT connected or not ready!");
+      Serial.println(F(" NOT connected or not ready!"));
     }
   }
 
-  Serial.println("Scale Setup Complete");
-
+  Serial.println(F("Scale Setup Complete"));
 }
 
 // ============================================================================
@@ -62,7 +53,7 @@ void setup()
 
 void loop()
 {
-  Serial.println("Press any key to begin calibration");
+  Serial.println(F("Press any key to begin calibration"));
   while (Serial.available()) Serial.read();
 
   while (!Serial.available())
@@ -72,7 +63,7 @@ void loop()
 
   while (Serial.available())Serial.read();
 
-  Serial.println("Enter Scale to Calibrate (0-3) followed by enter: ");
+  Serial.println(F("Enter Scale to Calibrate (0-3) followed by enter: "));
 
   while (Serial.available() == 0)
   {
@@ -87,12 +78,17 @@ void loop()
   calibrate(scales[scaleNum]);
 }
 
+// ============================================================================
+// Calibration Function
+// ============================================================================
+
 void calibrate(HX711 &myScale)
 {
   Serial.println("\n\nCALIBRATION\n===========");
   Serial.println("remove all weight from the loadcell");
-  //  flush Serial input
-  while (Serial.available()) Serial.read();
+
+  while (Serial.available())
+    Serial.read(); // flush input
 
   Serial.println("and press enter\n");
   while (Serial.available() == 0);
@@ -106,25 +102,20 @@ void calibrate(HX711 &myScale)
   Serial.println(offset);
   Serial.println();
 
-
   Serial.println("place a weight on the loadcell");
   //  flush Serial input
   while (Serial.available()) Serial.read();
 
+  //new
   Serial.println("enter the weight in (whole) grams and press enter");
-  uint32_t weight = 0;
-  while (Serial.peek() != '\n')
-  {
-    if (Serial.available())
-    {
-      char ch = Serial.read();
-      if (isdigit(ch))
-      {
-        weight *= 10;
-        weight = weight + (ch - '0');
-      }
-    }
-  }
+  char weightStr[16] = {0};
+  while (Serial.available())
+    Serial.read(); // flush input
+  while (Serial.available() == 0)
+    ; // wait for input
+  Serial.readBytesUntil('\n', weightStr, sizeof(weightStr) - 1);
+  uint32_t weight = atoi(weightStr);
+
   Serial.print("WEIGHT: ");
   Serial.println(weight);
   myScale.calibrate_scale(weight, 20);

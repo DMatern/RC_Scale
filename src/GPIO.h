@@ -97,35 +97,35 @@ void update_GPIO() {
 
 // TARE button functions
 void tare_click() {
-  Serial.println("tare click.");
+  // Serial.println("tare click.");
   bitSet(sysFlags, sysFlag_Tare);
 }
 
 void tare_hold() {
-  Serial.println("tare longPress stop");
+  // Serial.println("tare longPress stop");
 }
 
 // Select button functions
 void select_click(){
-  Serial.println("select click");
+  // Serial.println("select click");
   bitSet(sysFlags, sysFlag_Select);
 }
 
 void select_hold() {
-  Serial.println("select longPress stop");
+  // Serial.println("select longPress stop");
   // currentMode = MODE_CAL;
   // enteringNewMode = true;
 }
 
 // Up button functions
 void up_click() {
-  Serial.println("up click.");
+  // Serial.println("up click.");
   bitSet(sysFlags, sysFlag_UP);
 }
 
 // Dn button functions
 void dn_click() {
-  Serial.println("dn click.");
+  // Serial.println("dn click.");
   bitSet(sysFlags, sysFlag_DN);
 }
 

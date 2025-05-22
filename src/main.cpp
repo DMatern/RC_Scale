@@ -3,6 +3,17 @@
 #include <U8g2lib.h>
 
 // ====================================
+// Global Variables
+
+/*
+add comon used variable to save mem
+serialBuffer[16]
+
+*/
+
+#include <scales.h>
+
+// ====================================
 // Calabration Settings
 
 #define CAL_ENABLE // enable calabration mode
@@ -25,15 +36,13 @@ int freeRam()
 
 void display_freeram()
 {
-  Serial.print(F("- SRAM left: "));
+  Serial.print(F("SRAM left: "));
   Serial.println(freeRam());
 }
 
 // ====================================
-// Global Variables
-
-// ====================================
 // Mode Settings
+
 enum modeEnum
 {
   MODE_STARTUP,
@@ -51,23 +60,14 @@ enum pageEnum
 
 modeEnum currentMode = MODE_STARTUP;
 pageEnum currentPage = PAGE_STARTUP;
-
 bool enteringNewMode = true;
 
-enum LED_COLOR
-{
-  RED,
-  GREEN
-};
+enum LED_COLOR {RED, GREEN};
+enum LED_STATE{OFF, ON, BLINK};
 
-enum LED_STATE
-{
-  OFF,
-  ON,
-  BLINK
-};
-
+// ====================================
 // Flags
+
 uint8_t sysFlags = 0x00;
 const byte sysFlag_LF = 0; // sysFlags bit 0:  0 = inactive	1 = active
 const byte sysFlag_RF = 1;  // sysFlags bit 1:  0 = inactive	1 = active
@@ -80,55 +80,34 @@ const byte sysFlag_DN = 7;           // sysFlags bit 7:  0 = inactive	1 = active
 
 // ====================================
 // OLED Display Initiation
-int PIN_I2C_SDA = A4;
-int PIN_I2C_SCL = A5;
+uint8_t PIN_I2C_SDA = A4;
+uint8_t PIN_I2C_SCL = A5;
 
 U8G2_SSD1306_128X64_NONAME_1_SW_I2C u8g2(U8G2_R0, /* clock=*/PIN_I2C_SCL, /* data=*/PIN_I2C_SDA, /* reset=*/U8X8_PIN_NONE); // Adafruit Feather ESP8266/32u4 Boards + FeatherWing OLED
 
 unsigned long lastDisplayUpdateTime = 0;  // the last time the display was updated
-unsigned long displayUpdateInterval = 50; // the display update interval
+uint8_t displayUpdateInterval = 50;       // the display update interval
 
-int g_lineHeight = 0;
+uint8_t g_lineHeight = 0;
 
 // ====================================
 // Include Files
 
 #include <GPIO.h>
 #include <GUI.h>
-#include <scales.h>
-// #include <cal.h>
-
-/*
-Display is fixed two color and has 8 rows of 8 pixels, top two rows are yellow and rest are blue
-
-         pixel
-  | Row 1 (8) yellow
-  | Row 2 (8) yellow
-  | Row 3 (8) blue
-  | Row 4 (8) blue
-  | Row 5 (8) blue
-  | Row 6 (8) blue
-  | Row 7 (8) blue
-  | Row 8 (8) blue
-
-when setting hight:
-> top row is 0, so each line must be -1
-> add additonal -1 for space below text and center in row*2
-
-*/
 
 // ============================================================================
 // Function Declarations
 void stateMachine();
 void updateDisplay(pageEnum page);
 
-    // ============================================================================
-    // Setup
-    // ============================================================================
-    void setup()
+// ============================================================================
+// Setup
+// ============================================================================
+void setup()
 {
   Serial.begin(115200);
-  Serial.println("Setup Begin");
+  Serial.println(F("Setup Begin"));
 
   // GPOI
   begin_GPIO();
@@ -143,16 +122,16 @@ void updateDisplay(pageEnum page);
   // Scales
   begin_scales();
 
-  Serial.println("Setup Complete");
+  Serial.println(F("Setup Complete"));
   display_freeram();
 
   delay(1000);
-
 }
 
 // ============================================================================
 // Loop
 // ============================================================================
+
 void loop()
 {
 
@@ -176,7 +155,7 @@ void stateMachine() {
     if (enteringNewMode)
     {
       enteringNewMode = false;
-      Serial.println("Mode: Startup");
+      Serial.println(F("Mode: Startup"));
       updateDisplay(PAGE_STARTUP); // Print border and message
 
       //Print Status for Load Cells, RAM, cal values,etc
@@ -192,7 +171,7 @@ void stateMachine() {
       if (enteringNewMode)
       {
         enteringNewMode = false;
-        Serial.println("Mode: Run");
+        Serial.println(F("Mode: Run"));
         updateDisplay(PAGE_MAIN); // Print border and message
       }
 
@@ -309,7 +288,7 @@ void updateDisplay(pageEnum page)
       u8g2.drawFrame(0, 0, u8g2.getWidth(), u8g2.getHeight()); //Draws Border to size of Display
       // u8g2.drawStr(3, 16, "Booting...");
       u8g2.setCursor(3, 16);
-      u8g2.print("Startup Complete");
+      u8g2.print(F("Startup Complete"));
     } while (u8g2.nextPage()); // transfer internal memory to the display
     break;
 
@@ -319,7 +298,7 @@ void updateDisplay(pageEnum page)
     {
       u8g2.drawFrame(0, 0, u8g2.getWidth(), u8g2.getHeight()); // Draws Border to size of Display
       u8g2.setCursor(3, 16);
-      u8g2.print("RUNNING");
+      u8g2.print(F("RUNNING"));
     } while (u8g2.nextPage()); // transfer internal memory to the display
     break;
 
