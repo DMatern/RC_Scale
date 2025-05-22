@@ -5,7 +5,7 @@
 // ====================================
 // Calabration Settings
 
-// #define CAL_ENABLE // enable calabration mode
+#define CAL_ENABLE // enable calabration mode
 
 #ifdef CAL_ENABLE
 #include <cal.h>
@@ -32,7 +32,27 @@ void display_freeram()
 // ====================================
 // Global Variables
 
+// ====================================
+// Mode Settings
+enum modeEnum
+{
+  MODE_STARTUP,
+  MODE_RUN,
+  MODE_TERMINAL
+};
+enum pageEnum
+{
+  PAGE_SPLASH,
+  PAGE_STARTUP,
+  PAGE_MAIN,
+  PAGE_1,
+  PAGE_2
+};
 
+modeEnum currentMode = MODE_STARTUP;
+pageEnum currentPage = PAGE_STARTUP;
+
+bool enteringNewMode = true;
 
 enum LED_COLOR
 {
@@ -53,10 +73,10 @@ const byte sysFlag_LF = 0; // sysFlags bit 0:  0 = inactive	1 = active
 const byte sysFlag_RF = 1;  // sysFlags bit 1:  0 = inactive	1 = active
 const byte sysFlag_RR = 2;             // sysFlags bit 2:  0 = inactive	1 = active
 const byte sysFlag_LR = 3;            // sysFlags bit 3:  0 = inactive	1 = active
-// const byte sysFlag_LF = 4;            // sysFlags bit 4:  0 = inactive	1 = active
-// const byte sysFlag_RF = 5;            // sysFlags bit 5:  0 = inactive	1 = active
-// const byte sysFlag_RR = 6;             // sysFlags bit 6:  0 = inactive	1 = active
-// const byte sysFlag_LR = 7;           // sysFlags bit 7:  0 = inactive	1 = active
+const byte sysFlag_Tare = 4;            // sysFlags bit 4:  0 = inactive	1 = active
+const byte sysFlag_Select = 5;            // sysFlags bit 5:  0 = inactive	1 = active
+const byte sysFlag_UP = 6;             // sysFlags bit 6:  0 = inactive	1 = active
+const byte sysFlag_DN = 7;           // sysFlags bit 7:  0 = inactive	1 = active
 
 // ====================================
 // OLED Display Initiation
@@ -67,6 +87,7 @@ U8G2_SSD1306_128X64_NONAME_1_SW_I2C u8g2(U8G2_R0, /* clock=*/PIN_I2C_SCL, /* dat
 
 unsigned long lastDisplayUpdateTime = 0;  // the last time the display was updated
 unsigned long displayUpdateInterval = 50; // the display update interval
+
 int g_lineHeight = 0;
 
 // ====================================
@@ -75,30 +96,7 @@ int g_lineHeight = 0;
 #include <GPIO.h>
 #include <GUI.h>
 #include <scales.h>
-#include <cal.h>
-
-// ====================================
-// Mode Settings
-enum modeEnum
-{
-  MODE_STARTUP,
-  MODE_CAL,
-  MODE_RUN,
-  MODE_TERMINAL
-};
-enum pageEnum
-{
-  PAGE_SPLASH,
-  PAGE_STARTUP,
-  PAGE_MAIN,
-  PAGE_1,
-  PAGE_2
-};
-
-modeEnum currentMode = MODE_STARTUP;
-pageEnum currentPage = PAGE_STARTUP;
-
-bool enteringNewMode = true;
+// #include <cal.h>
 
 /*
 Display is fixed two color and has 8 rows of 8 pixels, top two rows are yellow and rest are blue
@@ -138,6 +136,8 @@ void updateDisplay(pageEnum page);
 
   // Display
   u8g2.begin();
+  u8g2.setFont(u8g2_font_7x14_tr);
+  g_lineHeight = u8g2.getHeight() + 1;
   updateDisplay(PAGE_SPLASH);
 
   // Scales
@@ -176,26 +176,43 @@ void stateMachine() {
     if (enteringNewMode)
     {
       enteringNewMode = false;
+      Serial.println("Mode: Startup");
       updateDisplay(PAGE_STARTUP); // Print border and message
 
       //Print Status for Load Cells, RAM, cal values,etc
-
+      enteringNewMode = true;
+      currentMode = MODE_RUN; // set to next mode
     }
 
-      break;
 
-    case MODE_CAL:
-      if (enteringNewMode)
-      {
-        enteringNewMode = false;
-      }
+
       break;
 
     case MODE_RUN:
       if (enteringNewMode)
       {
         enteringNewMode = false;
+        Serial.println("Mode: Run");
+        updateDisplay(PAGE_MAIN); // Print border and message
       }
+
+      // // Update local OLED display based on refresh period
+      // if ((currentTime - lastDisplayUpdateTime) >= displayUpdateInterval)
+      // {
+      //   updateDisplay(PAGE_SENSORS); // Update display with the desired page
+      //   lastDisplayUpdateTime = currentTime;
+      // }
+
+
+      // }
+
+      // // Terminal Check
+      // if (bitRead(sysFlags, sysflag_terminalActive))
+      // {
+      //   currentMode = TERMINAL_MODE;
+      //   enteringNewMode = true;
+      // }
+
       break;
 
     case MODE_TERMINAL:
@@ -203,6 +220,44 @@ void stateMachine() {
       {
         enteringNewMode = false;
       }
+
+      // // check for incoming telnet data
+      // if (telnet.available())
+      // {
+      //   String command = readTelnetString();
+      //   processTelnetString(command);
+      //   lastTelnetActivationTime = millis(); // reset telnet activity time when new data is recived
+      // }
+
+      // // Display Update
+      // if ((currentTime - lastDisplayUpdateTime) >= displayUpdateInterval)
+      // {
+      //   updateDisplay(PAGE_STATUS); // Update display with the desired page
+      //   lastDisplayUpdateTime = currentTime;
+      // }
+
+      // // Send data packet based on period
+      // if ((currentTime - lastUpdateInterval) >= updateInterval_telnet)
+      // {
+      //   sendWXDEvent(getEpochTime(), getTemperatureF(), getHumidity(), getPressure(), getWindSpeed(), getLightLevel(), getEnclosureTemp());
+      //   lastUpdateInterval = currentTime;
+      // }
+
+      // // Check for telnet connection timeout
+      // if ((millis() - lastTelnetActivationTime) >= telnetTimeoutPeriod)
+      // {
+      //   telnet.disconnectClient(); // Force disconnect
+      //   currentMode = RUN_MODE;
+      //   enteringNewMode = true;
+      //   bitClear(sysFlags, sysflag_terminalActive);
+      // }
+
+      // // Terminal Check for termination
+      // if (!bitRead(sysFlags, sysflag_terminalActive))
+      // {
+      //   currentMode = RUN_MODE;
+      //   enteringNewMode = true;
+      // }
       break;
 
       // case MODE_STARTUP:
@@ -235,8 +290,7 @@ void stateMachine() {
 
 void updateDisplay(pageEnum page)
 {
-
-  u8g2.clearBuffer();
+  // u8g2.clearBuffer();
 
   switch (page)
   {
@@ -249,16 +303,31 @@ void updateDisplay(pageEnum page)
     break;
 
   case PAGE_STARTUP:
-    u8g2.drawFrame(0, 0, u8g2.getWidth(), u8g2.getHeight()); //Draws Border to size of Display
-    u8g2.setCursor(3, g_lineHeight * 2 - 2);
-    u8g2.print("TELNET CONNECTED");
+    u8g2.firstPage();
+    do
+    {
+      u8g2.drawFrame(0, 0, u8g2.getWidth(), u8g2.getHeight()); //Draws Border to size of Display
+      // u8g2.drawStr(3, 16, "Booting...");
+      u8g2.setCursor(3, 16);
+      u8g2.print("Startup Complete");
+    } while (u8g2.nextPage()); // transfer internal memory to the display
+    break;
+
+  case PAGE_MAIN:
+    u8g2.firstPage();
+    do
+    {
+      u8g2.drawFrame(0, 0, u8g2.getWidth(), u8g2.getHeight()); // Draws Border to size of Display
+      u8g2.setCursor(3, 16);
+      u8g2.print("RUNNING");
+    } while (u8g2.nextPage()); // transfer internal memory to the display
     break;
 
   default:
     break;
   }
 
-  u8g2.sendBuffer();
+  // u8g2.sendBuffer();
 
 }
 
