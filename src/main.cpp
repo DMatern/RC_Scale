@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <Wire.h>
+#include <U8g2lib.h>
 
 // ====================================
 // Calabration Settings
@@ -11,49 +12,94 @@
 #else
 
 // ====================================
+// RAM Functions
+
+int freeRam()
+{
+  extern int __heap_start, *__brkval;
+  int v;
+  return (int)&v - (__brkval == 0
+                        ? (int)&__heap_start
+                        : (int)__brkval);
+}
+
+void display_freeram()
+{
+  Serial.print(F("- SRAM left: "));
+  Serial.println(freeRam());
+}
+
+// ====================================
 // Global Variables
+
+
+
+enum LED_COLOR
+{
+  RED,
+  GREEN
+};
+
+enum LED_STATE
+{
+  OFF,
+  ON,
+  BLINK
+};
+
+// Flags
+uint8_t sysFlags = 0x00;
+const byte sysFlag_LF = 0; // sysFlags bit 0:  0 = inactive	1 = active
+const byte sysFlag_RF = 1;  // sysFlags bit 1:  0 = inactive	1 = active
+const byte sysFlag_RR = 2;             // sysFlags bit 2:  0 = inactive	1 = active
+const byte sysFlag_LR = 3;            // sysFlags bit 3:  0 = inactive	1 = active
+// const byte sysFlag_LF = 4;            // sysFlags bit 4:  0 = inactive	1 = active
+// const byte sysFlag_RF = 5;            // sysFlags bit 5:  0 = inactive	1 = active
+// const byte sysFlag_RR = 6;             // sysFlags bit 6:  0 = inactive	1 = active
+// const byte sysFlag_LR = 7;           // sysFlags bit 7:  0 = inactive	1 = active
+
+// ====================================
+// OLED Display Initiation
+int PIN_I2C_SDA = A4;
+int PIN_I2C_SCL = A5;
+
+U8G2_SSD1306_128X64_NONAME_1_SW_I2C u8g2(U8G2_R0, /* clock=*/PIN_I2C_SCL, /* data=*/PIN_I2C_SDA, /* reset=*/U8X8_PIN_NONE); // Adafruit Feather ESP8266/32u4 Boards + FeatherWing OLED
+
+unsigned long lastDisplayUpdateTime = 0;  // the last time the display was updated
+unsigned long displayUpdateInterval = 50; // the display update interval
+int g_lineHeight = 0;
 
 // ====================================
 // Include Files
 
-#include <U8g2lib.h>
-#include <HX711.h>
+#include <GPIO.h>
+#include <GUI.h>
+#include <scales.h>
+#include <cal.h>
 
-HX711 scale0;
-HX711 scale1;
-HX711 scale2;
-HX711 scale3;
+// ====================================
+// Mode Settings
+enum modeEnum
+{
+  MODE_STARTUP,
+  MODE_CAL,
+  MODE_RUN,
+  MODE_TERMINAL
+};
+enum pageEnum
+{
+  PAGE_SPLASH,
+  PAGE_STARTUP,
+  PAGE_MAIN,
+  PAGE_1,
+  PAGE_2
+};
 
-HX711 scales[4] = {scale0, scale1, scale2, scale3};
+modeEnum currentMode = MODE_STARTUP;
+pageEnum currentPage = PAGE_STARTUP;
 
-//  adjust pins if needed
-const uint8_t dataPin[4] = {3, 4, 5, 6};
-const uint8_t clockPin = 7;
+bool enteringNewMode = true;
 
-//  TODO you need to adjust to your calibrated scale values
-float calib[4] = {420.0983, 421.365, 419.200, 410.236};
-
-// ============================================================================
-// GPIO Setup
-int PIN_LEDred = A6;
-int PIN_LEDgeen = A7;
-
-int PIN_Button[4] = {A0, A1, A2, A3};
-
-
-
-uint32_t count = 0;
-// ============================================================================
-// OLED Display Setup
-int PIN_I2C_SDA = A4;
-int PIN_I2C_SCL = A5;
-
-U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, /* clock=*/PIN_I2C_SCL, /* data=*/PIN_I2C_SDA, /* reset=*/U8X8_PIN_NONE); // Adafruit Feather ESP8266/32u4 Boards + FeatherWing OLED
-
-unsigned long lastDisplayUpdateTime = 0;  // the last time the display was updated
-unsigned long displayUpdateInterval = 50; // the display update interval
-
-int g_lineHeight = 0;
 /*
 Display is fixed two color and has 8 rows of 8 pixels, top two rows are yellow and rest are blue
 
@@ -75,50 +121,32 @@ when setting hight:
 
 // ============================================================================
 // Function Declarations
+void stateMachine();
+void updateDisplay(pageEnum page);
 
-// ============================================================================
-// Setup
-// ============================================================================
-void setup()
+    // ============================================================================
+    // Setup
+    // ============================================================================
+    void setup()
 {
   Serial.begin(115200);
-  Serial.println(__FILE__);
-  Serial.print("HX711_LIB_VERSION: ");
-  Serial.println(HX711_LIB_VERSION);
-  Serial.println();
-
   Serial.println("Setup Begin");
 
-  //GPIO
-  for (int i = 0; i < 4; i++)
-  {
-    pinMode(PIN_Button[i], INPUT_PULLUP);
-  }
+  // GPOI
+  begin_GPIO();
 
-  pinMode(PIN_LEDred, OUTPUT);
-  pinMode(PIN_LEDgeen, OUTPUT);
-
-  digitalWrite(PIN_LEDred, LOW);
-  digitalWrite(PIN_LEDgeen, LOW);
 
   // Display
   u8g2.begin();
-
-  u8g2.clearBuffer();                  // clear the internal memory
-  u8g2.setFont(u8g2_font_ncenB08_tr);  // choose a suitable font
-  u8g2.drawStr(0, 10, "Hello World!"); // write something to the internal memory
-  u8g2.sendBuffer();                   // transfer internal memory to the display
+  updateDisplay(PAGE_SPLASH);
 
   // Scales
-  // for (int i = 0; i < 4; i++)
-  // {
-  //   scales[i].begin(dataPin[i], clockPin);
-  //   scales[i].set_scale(calib[i]);
-  //   //  reset the scale to zero = 0
-  //   scales[i].tare();
-  // }
+  begin_scales();
 
   Serial.println("Setup Complete");
+  display_freeram();
+
+  delay(1000);
 
 }
 
@@ -127,34 +155,111 @@ void setup()
 // ============================================================================
 void loop()
 {
-  // count++;
-  // Serial.print(count);
-  // for (int i = 0; i < 4; i++)
-  // {
-  //   Serial.print("\t");
-  //   Serial.print(scales[i].get_units(5));
-  // }
-  // Serial.println();
 
-  for (int i = 0; i < 4; i++)
+  update_GPIO();
+  // update_scales();
+
+  stateMachine();
+
+  // delay(250);
+}
+
+// ====================================
+// State Machine
+// ====================================
+
+void stateMachine() {
+
+  switch (currentMode)
   {
-    if(digitalRead(PIN_Button[i]) == LOW)
+  case MODE_STARTUP:
+    if (enteringNewMode)
     {
-      Serial.print("Button Pressed: ");
-      Serial.println(i);
-      digitalWrite(PIN_LEDred, HIGH);
-      delay(1000);
-      digitalWrite(PIN_LEDred, LOW);
+      enteringNewMode = false;
+      updateDisplay(PAGE_STARTUP); // Print border and message
+
+      //Print Status for Load Cells, RAM, cal values,etc
+
     }
-  }
 
+      break;
 
+    case MODE_CAL:
+      if (enteringNewMode)
+      {
+        enteringNewMode = false;
+      }
+      break;
 
-  delay(250);
+    case MODE_RUN:
+      if (enteringNewMode)
+      {
+        enteringNewMode = false;
+      }
+      break;
+
+    case MODE_TERMINAL:
+      if (enteringNewMode)
+      {
+        enteringNewMode = false;
+      }
+      break;
+
+      // case MODE_STARTUP:
+      //   /* code */
+      //   break;
+
+    default:
+      break;
+    }
 }
 
 // ====================================
 // Setup Functions
 // ====================================
+
+// void setupDisplay()
+// {
+
+//   u8g2.begin();
+//   u8g2.clearBuffer();
+//   // g_lineHeight = u8g2.getFontAscent() - u8g2.getFontDescent(); // set y positin based on font height
+
+//   u8g2.setFont(u8g2_font_7x14_tr);
+//   g_lineHeight = 8; // set y position per line of display
+
+//   Serial.println("Setup Complete: Display");
+//   delay(100);
+//   updateDisplay(PAGE_SPLASH); // Print border and booting message
+// }
+
+void updateDisplay(pageEnum page)
+{
+
+  u8g2.clearBuffer();
+
+  switch (page)
+  {
+  case PAGE_SPLASH:
+    u8g2.firstPage();
+    do
+    {
+      displaySplash();
+    } while (u8g2.nextPage()); // transfer internal memory to the display
+    break;
+
+  case PAGE_STARTUP:
+    u8g2.drawFrame(0, 0, u8g2.getWidth(), u8g2.getHeight()); //Draws Border to size of Display
+    u8g2.setCursor(3, g_lineHeight * 2 - 2);
+    u8g2.print("TELNET CONNECTED");
+    break;
+
+  default:
+    break;
+  }
+
+  u8g2.sendBuffer();
+
+}
 
 #endif

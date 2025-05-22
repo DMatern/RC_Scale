@@ -1,39 +1,4 @@
-//
-//    FILE: HX_calibration.ino
-//  AUTHOR: Rob Tillaart
-// PURPOSE: HX711 calibration finder for offset and scale
-//     URL: https://github.com/RobTillaart/HX711
-
-
-#include <HX711.h>
-
-HX711 myScale;
-
-//  adjust pins if needed.
-uint8_t dataPin = 6;
-uint8_t clockPin = 7;
-
-void calibrate();
-
-void setup()
-{
-  Serial.begin(115200);
-  Serial.println(__FILE__);
-  Serial.print("HX711_LIB_VERSION: ");
-  Serial.println(HX711_LIB_VERSION);
-  Serial.println();
-
-  myScale.begin(dataPin, clockPin);
-}
-
-void loop()
-{
-  calibrate();
-}
-
-
-
-void calibrate()
+void calibrate(HX711 &myScale)
 {
   Serial.println("\n\nCALIBRATION\n===========");
   Serial.println("remove all weight from the loadcell");
