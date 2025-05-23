@@ -11,17 +11,25 @@ HX711 scale3; //Left Rear
 HX711 scales[4] = {scale0, scale1, scale2, scale3};
 bool scalesReady[4] = {false, false, false, false};
 
-const uint8_t dataPin[4] = {5, 4, 3, 2};
+const uint8_t dataPin[4] = {5, 4, 3, 7};
 const uint8_t clockPin = 6;
 
-//  TODO you need to adjust to your calibrated scale values
-float calib[4] = {420.0983, 421.365, 419.200, 410.236};
+float calib[4] = {391.597503, 421.365, 419.200, 410.236};
+unsigned long offset[4] = {625931, 0, 0, 0}; // offset values for each scale
 
 unsigned long lastScaleUpdate = 0;
-const int scaleUpdateInterval = 250;
+const int scaleUpdateInterval = 1000;
+
+// ============================================================================
+// Ratio Variables
+int ratioFront = 0;
+int ratioRear = 0;
+int ratioLeft = 0;
+int ratioRight = 0;
 
 // ============================================================================
 // Funtion Definitions
+void getRatio_FR();
 
 // ============================================================================
 // Setup
@@ -39,12 +47,16 @@ void begin_scales()
   for (int i = 0; i < 4; i++)
   {
     scales[i].begin(dataPin[i], clockPin);
-    delay(250); // Give time for HX711 to power up
+    delay(1000); // Give time for HX711 to power up
+
+    scales[i].set_scale(calib[i]);
+    scales[i].set_offset(offset[i]);
 
     if (scales[i].is_ready())
     {
       // scales[i].set_scale(calib[i]);
-      // scales[i].tare();
+      scales[i].set_raw_mode();
+      scales[i].tare();
       Serial.print(F("Scale "));
       Serial.print(i);
       Serial.println(F(" ready and tared."));
@@ -58,6 +70,7 @@ void begin_scales()
       Serial.print(i);
       Serial.println(F(" NOT connected or not ready!"));
       // bitClear(sysFlags, i);
+      scalesReady[i] = false;
     }
   }
 
@@ -77,25 +90,99 @@ void update_scales()
   if (now - lastScaleUpdate >= scaleUpdateInterval)
   {
     lastScaleUpdate = now;
-    // count++;
-    // Serial.print(count);
     for (int i = 0; i < 4; i++)
+    {
+      if(scalesReady[i]) {
+        if (scales[i].is_ready())
+        {
+          // scalesReady[i] = true;
+          // currentWeight[i] = scales[i].get_units(5);
+
+          // Get the weight as a whole number (integer)
+          currentWeight[i] = static_cast<int>(scales[i].get_units(5)); // Cast to int
+
+          Serial.print("\t");
+          Serial.print(currentWeight[i]);
+        }
+        else
+        {
+          Serial.print("\t");
+          Serial.print("N/A");
+          // scalesReady[i] = false;
+        }
+
+      }      
+    }
+    Serial.println();
+
+    getRatio_FR();
+
+
+  }
+
+
+
+
+
+}
+
+void tareAll() {
+  for (int i = 0; i < 4; i++)
     {
       if (scales[i].is_ready())
       {
-        Serial.print("\t");
-        Serial.print(scales[i].get_units(5));
+        scalesReady[i] = true;
+        // currentWeight[i] = scales[i].get_units(5);
+        scales[i].tare();
+        // Serial.print("\t");
+        // Serial.print(currentWeight[i]);
       }
       else
       {
-        Serial.print("\t");
-        Serial.print("N/A");
+        // Serial.print("\t");
+        // Serial.print("N/A");
+        scalesReady[i] = false;
       }
     }
+}
 
-    Serial.println();
+void getRatio_FR() {
+  // Calculate total front and rear weights
+    int frontWeight = currentWeight[0] + currentWeight[1]; // Front Left + Front Right
+    int rearWeight = currentWeight[2] + currentWeight[3];  // Rear Left + Rear Right
 
-  }
+    // Calculate the total weight
+    int totalWeight = frontWeight + rearWeight;
+
+    // Avoid division by zero
+    if (totalWeight == 0) {
+        Serial.println(F("Error: Total weight is zero, cannot calculate ratio."));
+        return;
+    }
+
+    // Calculate the front and rear weight percentages
+    ratioFront = (frontWeight / totalWeight) * 100.0;
+    ratioRear = (rearWeight / totalWeight) * 100.0;
+
+}
+
+void getRatio_LR() {
+    // Calculate total front and rear weights
+    int frontWeight = currentWeight[0] + currentWeight[1]; // Front Left + Front Right
+    int rearWeight = currentWeight[2] + currentWeight[3];  // Rear Left + Rear Right
+
+    // Calculate the total weight
+    int totalWeight = frontWeight + rearWeight;
+
+    // Avoid division by zero
+    if (totalWeight == 0) {
+        Serial.println(F("Error: Total weight is zero, cannot calculate ratio."));
+        return;
+    }
+
+    // Calculate the front and rear weight percentages
+    float frontPercentage = (frontWeight / totalWeight) * 100.0;
+    float rearPercentage = (rearWeight / totalWeight) * 100.0;
 }
 
 // ====================================

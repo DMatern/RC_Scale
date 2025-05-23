@@ -5,6 +5,8 @@
 // ====================================
 // Global Variables
 
+int currentWeight[4] = {0, 0, 0, 0}; // current weight for each scale in grams
+
 /*
 add comon used variable to save mem
 serialBuffer[16]
@@ -16,7 +18,7 @@ serialBuffer[16]
 // ====================================
 // Calabration Settings
 
-#define CAL_ENABLE // enable calabration mode
+// #define CAL_ENABLE // enable calabration mode
 
 #ifdef CAL_ENABLE
 #include <cal.h>
@@ -54,12 +56,13 @@ enum pageEnum
   PAGE_SPLASH,
   PAGE_STARTUP,
   PAGE_MAIN,
-  PAGE_1,
-  PAGE_2
+  PAGE_TOTALS,
+  PAGE_CORNERS,
+  PAGE_RATIOS
 };
 
 modeEnum currentMode = MODE_STARTUP;
-pageEnum currentPage = PAGE_STARTUP;
+pageEnum currentPage = PAGE_MAIN;
 bool enteringNewMode = true;
 
 enum LED_COLOR {RED, GREEN};
@@ -69,10 +72,10 @@ enum LED_STATE{OFF, ON, BLINK};
 // Flags
 
 uint8_t sysFlags = 0x00;
-const byte sysFlag_LF = 0; // sysFlags bit 0:  0 = inactive	1 = active
-const byte sysFlag_RF = 1;  // sysFlags bit 1:  0 = inactive	1 = active
-const byte sysFlag_RR = 2;             // sysFlags bit 2:  0 = inactive	1 = active
-const byte sysFlag_LR = 3;            // sysFlags bit 3:  0 = inactive	1 = active
+// const byte sysFlag_ = 0; // sysFlags bit 0:  0 = inactive	1 = active
+// const byte sysFlag_ = 1;  // sysFlags bit 1:  0 = inactive	1 = active
+// const byte sysFlag_ = 2;             // sysFlags bit 2:  0 = inactive	1 = active
+const byte sysFlag_TareHold = 3;            // sysFlags bit 3:  0 = inactive	1 = active
 const byte sysFlag_Tare = 4;            // sysFlags bit 4:  0 = inactive	1 = active
 const byte sysFlag_Select = 5;            // sysFlags bit 5:  0 = inactive	1 = active
 const byte sysFlag_UP = 6;             // sysFlags bit 6:  0 = inactive	1 = active
@@ -86,9 +89,10 @@ uint8_t PIN_I2C_SCL = A5;
 U8G2_SSD1306_128X64_NONAME_1_SW_I2C u8g2(U8G2_R0, /* clock=*/PIN_I2C_SCL, /* data=*/PIN_I2C_SDA, /* reset=*/U8X8_PIN_NONE); // Adafruit Feather ESP8266/32u4 Boards + FeatherWing OLED
 
 unsigned long lastDisplayUpdateTime = 0;  // the last time the display was updated
-uint8_t displayUpdateInterval = 50;       // the display update interval
+int displayUpdateInterval = 1000;       // the display update interval
 
-uint8_t g_lineHeight = 0;
+uint8_t g_rowHeight = 8; // total of 8
+uint8_t g_colWidth = 16; // total of 8
 
 // ====================================
 // Include Files
@@ -99,6 +103,8 @@ uint8_t g_lineHeight = 0;
 // ============================================================================
 // Function Declarations
 void stateMachine();
+void cyclePages();
+void begin_Display();
 void updateDisplay(pageEnum page);
 
 // ============================================================================
@@ -112,12 +118,8 @@ void setup()
   // GPOI
   begin_GPIO();
 
-
   // Display
-  u8g2.begin();
-  u8g2.setFont(u8g2_font_7x14_tr);
-  g_lineHeight = u8g2.getHeight() + 1;
-  updateDisplay(PAGE_SPLASH);
+  begin_Display();
 
   // Scales
   begin_scales();
@@ -135,10 +137,12 @@ void setup()
 void loop()
 {
 
-  update_GPIO();
+  // update_GPIO();
   // update_scales();
 
   stateMachine();
+
+  // Serial.println(millis());
 
   // delay(250);
 }
@@ -148,6 +152,7 @@ void loop()
 // ====================================
 
 void stateMachine() {
+  unsigned long currentTime = millis(); // Get the current time
 
   switch (currentMode)
   {
@@ -162,9 +167,6 @@ void stateMachine() {
       enteringNewMode = true;
       currentMode = MODE_RUN; // set to next mode
     }
-
-
-
       break;
 
     case MODE_RUN:
@@ -175,15 +177,28 @@ void stateMachine() {
         updateDisplay(PAGE_MAIN); // Print border and message
       }
 
-      // // Update local OLED display based on refresh period
-      // if ((currentTime - lastDisplayUpdateTime) >= displayUpdateInterval)
-      // {
-      //   updateDisplay(PAGE_SENSORS); // Update display with the desired page
-      //   lastDisplayUpdateTime = currentTime;
-      // }
+      update_GPIO();  //process GPIO input and output
+      update_scales();//update scales
 
+      // Update local OLED display based on refresh period
+      if ((currentTime - lastDisplayUpdateTime) >= displayUpdateInterval)
+      {
+        updateDisplay(currentPage); // Update display with the desired page
+        lastDisplayUpdateTime = currentTime;
+      }
 
-      // }
+      if (bitRead(sysFlags, sysFlag_Tare))
+      {
+        bitClear(sysFlags, sysFlag_Tare);
+        cyclePages();
+      }  
+
+      if (bitRead(sysFlags, sysFlag_TareHold))
+      {
+        bitClear(sysFlags, sysFlag_TareHold);
+        // cyclePages();
+        tareAll();
+      }  
 
       // // Terminal Check
       // if (bitRead(sysFlags, sysflag_terminalActive))
@@ -213,23 +228,7 @@ void stateMachine() {
       // {
       //   updateDisplay(PAGE_STATUS); // Update display with the desired page
       //   lastDisplayUpdateTime = currentTime;
-      // }
-
-      // // Send data packet based on period
-      // if ((currentTime - lastUpdateInterval) >= updateInterval_telnet)
-      // {
-      //   sendWXDEvent(getEpochTime(), getTemperatureF(), getHumidity(), getPressure(), getWindSpeed(), getLightLevel(), getEnclosureTemp());
-      //   lastUpdateInterval = currentTime;
-      // }
-
-      // // Check for telnet connection timeout
-      // if ((millis() - lastTelnetActivationTime) >= telnetTimeoutPeriod)
-      // {
-      //   telnet.disconnectClient(); // Force disconnect
-      //   currentMode = RUN_MODE;
-      //   enteringNewMode = true;
-      //   bitClear(sysFlags, sysflag_terminalActive);
-      // }
+      // }   
 
       // // Terminal Check for termination
       // if (!bitRead(sysFlags, sysflag_terminalActive))
@@ -267,6 +266,25 @@ void stateMachine() {
 //   updateDisplay(PAGE_SPLASH); // Print border and booting message
 // }
 
+void cyclePages() {
+  const pageEnum firstPage = PAGE_TOTALS;  // Define the first page in the enum
+  const pageEnum lastPage = PAGE_RATIOS;  // Define the last page in the enum
+
+  Serial.println(F("Page Change"));
+
+  currentPage = static_cast<pageEnum>(currentPage + 1); // Increment the current page
+  if (currentPage > lastPage) // Wrap around if it exceeds the last page
+  {
+      currentPage = firstPage;
+  }
+}
+
+void begin_Display() {
+  u8g2.begin();
+  u8g2.setFont(u8g2_font_7x14_tr);
+  updateDisplay(PAGE_SPLASH);
+}
+
 void updateDisplay(pageEnum page)
 {
   // u8g2.clearBuffer();
@@ -296,10 +314,114 @@ void updateDisplay(pageEnum page)
     u8g2.firstPage();
     do
     {
+      u8g2.setFont(u8g2_font_7x14_tr);
+
       u8g2.drawFrame(0, 0, u8g2.getWidth(), u8g2.getHeight()); // Draws Border to size of Display
-      u8g2.setCursor(3, 16);
-      u8g2.print(F("RUNNING"));
+      u8g2.setCursor(5, (g_rowHeight * 2) -1);
+      u8g2.print(F("RUNNING"));      
+      
+      u8g2.setCursor(3, 32);
+      u8g2.print(currentWeight[0]);
+
+      u8g2.setCursor(3, 48);
+      u8g2.print((currentWeight[0] * 0.00220462));
+
     } while (u8g2.nextPage()); // transfer internal memory to the display
+    break;
+
+    case PAGE_TOTALS:
+    u8g2.firstPage();
+    do
+    {
+
+      u8g2.setFont(u8g2_font_7x14_tr);
+
+      u8g2.drawFrame(0, 0, u8g2.getWidth(), u8g2.getHeight()); // Draws Border to size of Display
+      u8g2.setCursor(5, g_rowHeight * 2);
+      u8g2.print(F("TOTALS"));
+
+      u8g2.setCursor(5, g_rowHeight * 4);
+      u8g2.print(currentWeight[0]);
+      u8g2.print(" grams");
+
+      u8g2.setCursor(5, g_rowHeight * 6);
+      u8g2.print((currentWeight[0] * 0.00220462));
+      u8g2.print(" lbs");
+      
+    } while (u8g2.nextPage()); // transfer internal memory to the display
+    break;
+
+    case PAGE_CORNERS:
+    u8g2.firstPage();
+    do
+    {
+      // u8g2.setFont(u8g2_font_7x14_tr);
+
+      u8g2.drawFrame(0, 0, u8g2.getWidth(), u8g2.getHeight()); // Draws Border to size of Display
+      // u8g2.setCursor(5, (g_rowHeight * 2) - 1);
+      // u8g2.print(F("CORNERS (grams)"));
+
+      u8g2.setFont(u8g2_font_5x7_tr);
+
+      u8g2.setCursor(g_colWidth * 1, (g_rowHeight * 1) - 0);
+      u8g2.print(F("FRONT R"));
+      u8g2.setCursor(g_colWidth * 1, (g_rowHeight * 8) - 2);
+      u8g2.print(F("FRONT L"));
+      u8g2.setCursor(g_colWidth * 5, (g_rowHeight * 1) - 0);
+      u8g2.print(F("REAR  R"));
+      u8g2.setCursor(g_colWidth * 5, (g_rowHeight * 8) - 2);
+      u8g2.print(F("REAR  L"));
+
+      // u8g2.setFont(u8g2_font_7x14B_tn);
+      u8g2.setFont(u8g2_font_profont22_tn);
+
+      u8g2.setCursor((g_colWidth * 1) -5, (g_rowHeight * 3) + 3);
+      u8g2.print(currentWeight[0]);
+      u8g2.setCursor((g_colWidth * 1) -4, (g_rowHeight * 7) - 6);
+      u8g2.print(currentWeight[1]);
+      u8g2.setCursor((g_colWidth * 5) -5, (g_rowHeight * 3) + 3);
+      u8g2.print(currentWeight[3]);
+      u8g2.setCursor((g_colWidth * 5) -4, (g_rowHeight * 7) - 6);
+      u8g2.print(currentWeight[2]);
+ 
+    } while (u8g2.nextPage()); // transfer internal memory to the display
+    break;
+
+    case PAGE_RATIOS:
+    u8g2.firstPage();
+    do
+    {
+      // u8g2.setFont(u8g2_font_7x14_tr);
+
+      u8g2.drawFrame(0, 0, u8g2.getWidth(), u8g2.getHeight()); // Draws Border to size of Display
+      // u8g2.setCursor(5, (g_rowHeight * 2) - 1);
+      // u8g2.print(F("CORNERS (grams)"));
+
+      // u8g2.setFont(u8g2_font_5x7_tr);
+
+      // u8g2.setCursor(g_colWidth * 1, (g_rowHeight * 1) - 0);
+      // u8g2.print(F("FRONT R"));
+      // u8g2.setCursor(g_colWidth * 1, (g_rowHeight * 8) - 2);
+      // u8g2.print(F("FRONT L"));
+      // u8g2.setCursor(g_colWidth * 5, (g_rowHeight * 1) - 0);
+      // u8g2.print(F("REAR  R"));
+      // u8g2.setCursor(g_colWidth * 5, (g_rowHeight * 8) - 2);
+      // u8g2.print(F("REAR  L"));
+
+      // u8g2.setFont(u8g2_font_7x14B_tn);
+      u8g2.setFont(u8g2_font_profont22_tn);
+
+      u8g2.setCursor((g_colWidth * 1), (g_rowHeight * 4) + 0);
+      u8g2.print(ratioFront);
+      u8g2.setCursor((g_colWidth * 1), (g_rowHeight * 7) - 6);
+      u8g2.print(ratioLeft);
+      u8g2.setCursor((g_colWidth * 6), (g_rowHeight * 3) + 3);
+      u8g2.print(ratioRear);
+      u8g2.setCursor((g_colWidth * 6), (g_rowHeight * 7) - 6);
+      u8g2.print(ratioRight);
+ 
+    } while (u8g2.nextPage()); // transfer internal memory to the display
+
     break;
 
   default:

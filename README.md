@@ -22,3 +22,23 @@ General:
 3. Loop
 - Display Pages
 - Read Load Cells
+
+Claibration Data
+
+CALIBRATION - 0
+===========
+remove all weight from the loadcell
+and press enter
+
+
+Determine zero weight offset
+OFFSET: 625931
+
+place a weight on the loadcell
+enter the weight in (whole) grams and press enter
+50
+WEIGHT: 50
+SCALE:  391.597503
+
+use scale.set_offset(625931); and scale.set_scale(391.597503);
+in the setup of your project

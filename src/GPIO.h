@@ -4,13 +4,11 @@
 #include "OneButton.h"
 
 // LED Pins
-int PIN_LEDred   = 7;
+int PIN_LEDred   = 9;
 int PIN_LEDgreen = 8;
 
 // Button Pins
-int PIN_Button[4] = {A0, A1, A2, A3};
-
-int PIN_TARE = A0;
+int PIN_TARE = 2;
 int PIN_UP = A3;
 int PIN_SELECT = A2;
 int PIN_DN = A1;
@@ -26,6 +24,7 @@ OneButton btn_dn(PIN_DN, true);
 
 // ============================================================================
 // Funtion Definitions
+void checkTicks();
 void tare_click();
 void tare_hold();
 void select_click();
@@ -49,6 +48,10 @@ void begin_GPIO() {
 
   digitalWrite(PIN_LEDred, HIGH);
   digitalWrite(PIN_LEDgreen, HIGH);
+
+  // setup interrupt routine
+  // when not registering to the interrupt the sketch also works when the tick is called frequently.
+  attachInterrupt(digitalPinToInterrupt(PIN_TARE), checkTicks, CHANGE);
 
   // Button TARE link functions
   btn_tare.attachClick(tare_click);
@@ -80,12 +83,18 @@ void update_GPIO() {
 
   // keep watching the push buttons:
   btn_tare.tick();
-  btn_select.tick();
-  btn_up.tick();
-  btn_dn.tick();
-
+  // btn_select.tick();
+  // btn_up.tick();
+  // btn_dn.tick();
+ 
   // update leds
-
+  if(scalesReady[0] || scalesReady[1] || scalesReady[2] || scalesReady[3]) {
+    digitalWrite(PIN_LEDred, LOW);
+    digitalWrite(PIN_LEDgreen, HIGH);
+  } else {
+    digitalWrite(PIN_LEDred, HIGH);
+    digitalWrite(PIN_LEDgreen, LOW);
+  }  
 
 }  // loop
 
@@ -95,25 +104,32 @@ void update_GPIO() {
 
 // ----- button 1 callback functions
 
+void checkTicks()
+{
+  btn_tare.tick(); // Call the tick method to process button events
+}
+
 // TARE button functions
 void tare_click() {
-  // Serial.println("tare click.");
+  Serial.println("tare click.");
   bitSet(sysFlags, sysFlag_Tare);
 }
 
 void tare_hold() {
-  // Serial.println("tare longPress stop");
+  Serial.println("tare longPress stop");
+  bitSet(sysFlags, sysFlag_TareHold);
 }
 
 // Select button functions
 void select_click(){
   // Serial.println("select click");
+  //cycle thru modes
   bitSet(sysFlags, sysFlag_Select);
 }
 
 void select_hold() {
   // Serial.println("select longPress stop");
-  // currentMode = MODE_CAL;
+  //cycle thru modes
   // enteringNewMode = true;
 }
 
