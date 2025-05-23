@@ -9,7 +9,7 @@ HX711 scale2; //Right Rear
 HX711 scale3; //Left Rear
 
 HX711 scales[4] = {scale0, scale1, scale2, scale3};
-bool scalesReady[4] = {false, false, false, false};
+bool scalesReady[4] = {false, false, false, false}; // LF, RF, RR, LR
 
 const uint8_t dataPin[4] = {5, 4, 3, 7};
 const uint8_t clockPin = 6;
@@ -29,14 +29,15 @@ int ratioRight = 0;
 
 // ============================================================================
 // Funtion Definitions
-void getRatio_FR();
+void getRatio_FB();
+void getRatio_LR();
 
-// ============================================================================
-// Setup
-// ============================================================================
+    // ============================================================================
+    // Setup
+    // ============================================================================
 
-// setup code here, to run once:
-void begin_scales()
+    // setup code here, to run once:
+    void begin_scales()
 {
   Serial.println(__FILE__);
   Serial.print(F("HX711_LIB_VERSION: "));
@@ -101,6 +102,11 @@ void update_scales()
           // Get the weight as a whole number (integer)
           currentWeight[i] = static_cast<int>(scales[i].get_units(5)); // Cast to int
 
+          if(currentWeight[i] != previousWeight[i]) {
+            previousWeight[i] = currentWeight[i];
+            bitSet(sysFlags, sysFlag_newData);
+          }
+
           Serial.print("\t");
           Serial.print(currentWeight[i]);
         }
@@ -111,19 +117,14 @@ void update_scales()
           // scalesReady[i] = false;
         }
 
-      }      
+      }
     }
     Serial.println();
 
-    getRatio_FR();
-
+    getRatio_FB();
+    getRatio_LR();
 
   }
-
-
-
-
-
 }
 
 void tareAll() {
@@ -146,7 +147,7 @@ void tareAll() {
     }
 }
 
-void getRatio_FR() {
+void getRatio_FB() {
   // Calculate total front and rear weights
     int frontWeight = currentWeight[0] + currentWeight[1]; // Front Left + Front Right
     int rearWeight = currentWeight[2] + currentWeight[3];  // Rear Left + Rear Right
@@ -168,11 +169,11 @@ void getRatio_FR() {
 
 void getRatio_LR() {
     // Calculate total front and rear weights
-    int frontWeight = currentWeight[0] + currentWeight[1]; // Front Left + Front Right
-    int rearWeight = currentWeight[2] + currentWeight[3];  // Rear Left + Rear Right
+    int leftWeight = currentWeight[0] + currentWeight[3];
+    int rightWeight = currentWeight[1] + currentWeight[2];
 
     // Calculate the total weight
-    int totalWeight = frontWeight + rearWeight;
+    int totalWeight = leftWeight + rightWeight;
 
     // Avoid division by zero
     if (totalWeight == 0) {
@@ -181,8 +182,8 @@ void getRatio_LR() {
     }
 
     // Calculate the front and rear weight percentages
-    float frontPercentage = (frontWeight / totalWeight) * 100.0;
-    float rearPercentage = (rearWeight / totalWeight) * 100.0;
+    ratioLeft = (leftWeight / totalWeight) * 100.0;
+    ratioRight = (rightWeight / totalWeight) * 100.0;
 }
 
 // ====================================

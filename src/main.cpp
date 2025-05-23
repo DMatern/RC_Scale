@@ -3,9 +3,23 @@
 #include <U8g2lib.h>
 
 // ====================================
+// Flags
+
+uint8_t sysFlags = 0x00;
+const byte sysFlag_newData = 0; // sysFlags bit 0:  0 = inactive	1 = active
+// const byte sysFlag_ = 1;  // sysFlags bit 1:  0 = inactive	1 = active
+// const byte sysFlag_ = 2;             // sysFlags bit 2:  0 = inactive	1 = active
+const byte sysFlag_TareHold = 3; // sysFlags bit 3:  0 = inactive	1 = active
+const byte sysFlag_Tare = 4;     // sysFlags bit 4:  0 = inactive	1 = active
+const byte sysFlag_Select = 5;   // sysFlags bit 5:  0 = inactive	1 = active
+const byte sysFlag_UP = 6;       // sysFlags bit 6:  0 = inactive	1 = active
+const byte sysFlag_DN = 7;       // sysFlags bit 7:  0 = inactive	1 = active
+
+// ====================================
 // Global Variables
 
 int currentWeight[4] = {0, 0, 0, 0}; // current weight for each scale in grams
+int previousWeight[4] = {0, 0, 0, 0}; // previous weight for each scale in grams
 
 /*
 add comon used variable to save mem
@@ -67,19 +81,6 @@ bool enteringNewMode = true;
 
 enum LED_COLOR {RED, GREEN};
 enum LED_STATE{OFF, ON, BLINK};
-
-// ====================================
-// Flags
-
-uint8_t sysFlags = 0x00;
-// const byte sysFlag_ = 0; // sysFlags bit 0:  0 = inactive	1 = active
-// const byte sysFlag_ = 1;  // sysFlags bit 1:  0 = inactive	1 = active
-// const byte sysFlag_ = 2;             // sysFlags bit 2:  0 = inactive	1 = active
-const byte sysFlag_TareHold = 3;            // sysFlags bit 3:  0 = inactive	1 = active
-const byte sysFlag_Tare = 4;            // sysFlags bit 4:  0 = inactive	1 = active
-const byte sysFlag_Select = 5;            // sysFlags bit 5:  0 = inactive	1 = active
-const byte sysFlag_UP = 6;             // sysFlags bit 6:  0 = inactive	1 = active
-const byte sysFlag_DN = 7;           // sysFlags bit 7:  0 = inactive	1 = active
 
 // ====================================
 // OLED Display Initiation
@@ -181,8 +182,11 @@ void stateMachine() {
       update_scales();//update scales
 
       // Update local OLED display based on refresh period
-      if ((currentTime - lastDisplayUpdateTime) >= displayUpdateInterval)
+      //Add flag to enable update only on new data
+
+      if (((currentTime - lastDisplayUpdateTime) >= displayUpdateInterval) && bitRead(sysFlags, sysFlag_newData))
       {
+        bitClear(sysFlags, sysFlag_newData); // Clear the new data flag
         updateDisplay(currentPage); // Update display with the desired page
         lastDisplayUpdateTime = currentTime;
       }
@@ -191,14 +195,16 @@ void stateMachine() {
       {
         bitClear(sysFlags, sysFlag_Tare);
         cyclePages();
-      }  
+      }
 
       if (bitRead(sysFlags, sysFlag_TareHold))
       {
         bitClear(sysFlags, sysFlag_TareHold);
         // cyclePages();
+        digitalWrite(PIN_LEDred, HIGH);
         tareAll();
-      }  
+        digitalWrite(PIN_LEDred, LOW);
+      }
 
       // // Terminal Check
       // if (bitRead(sysFlags, sysflag_terminalActive))
@@ -228,7 +234,7 @@ void stateMachine() {
       // {
       //   updateDisplay(PAGE_STATUS); // Update display with the desired page
       //   lastDisplayUpdateTime = currentTime;
-      // }   
+      // }
 
       // // Terminal Check for termination
       // if (!bitRead(sysFlags, sysflag_terminalActive))
@@ -277,6 +283,8 @@ void cyclePages() {
   {
       currentPage = firstPage;
   }
+
+  bitSet(sysFlags, sysFlag_newData); // Set the new data flag to force update on page change
 }
 
 void begin_Display() {
@@ -317,14 +325,25 @@ void updateDisplay(pageEnum page)
       u8g2.setFont(u8g2_font_7x14_tr);
 
       u8g2.drawFrame(0, 0, u8g2.getWidth(), u8g2.getHeight()); // Draws Border to size of Display
-      u8g2.setCursor(5, (g_rowHeight * 2) -1);
-      u8g2.print(F("RUNNING"));      
-      
-      u8g2.setCursor(3, 32);
-      u8g2.print(currentWeight[0]);
+      u8g2.drawHLine(0, g_rowHeight * 2, u8g2.getWidth());     // Draws a line across the display
 
-      u8g2.setCursor(3, 48);
-      u8g2.print((currentWeight[0] * 0.00220462));
+      u8g2.setCursor(5, (g_rowHeight * 2) -2);
+      u8g2.print(F("RUNNING- STATUS"));
+
+      u8g2.setFont(u8g2_font_5x7_tr);
+
+      u8g2.setCursor(5, (g_rowHeight * 3) - 1);
+      u8g2.print(F("Scale FL: "));
+      u8g2.print(scalesReady[0] ? F("Ready") : F("Not Ready"));
+      u8g2.setCursor(5, (g_rowHeight * 4) - 1);
+      u8g2.print(F("Scale FR: "));
+      u8g2.print(scalesReady[1] ? F("Ready") : F("Not Ready"));
+      u8g2.setCursor(5, (g_rowHeight * 5) - 1);
+      u8g2.print(F("Scale RR: "));
+      u8g2.print(scalesReady[2] ? F("Ready") : F("Not Ready"));
+      u8g2.setCursor(5, (g_rowHeight * 6) - 1);
+      u8g2.print(F("Scale RL: "));
+      u8g2.print(scalesReady[3] ? F("Ready") : F("Not Ready"));
 
     } while (u8g2.nextPage()); // transfer internal memory to the display
     break;
@@ -337,7 +356,8 @@ void updateDisplay(pageEnum page)
       u8g2.setFont(u8g2_font_7x14_tr);
 
       u8g2.drawFrame(0, 0, u8g2.getWidth(), u8g2.getHeight()); // Draws Border to size of Display
-      u8g2.setCursor(5, g_rowHeight * 2);
+      u8g2.drawHLine(0, g_rowHeight * 2, u8g2.getWidth());     // Draws a line across the display
+      u8g2.setCursor(5, (g_rowHeight * 2) - 2);
       u8g2.print(F("TOTALS"));
 
       u8g2.setCursor(5, g_rowHeight * 4);
@@ -347,7 +367,7 @@ void updateDisplay(pageEnum page)
       u8g2.setCursor(5, g_rowHeight * 6);
       u8g2.print((currentWeight[0] * 0.00220462));
       u8g2.print(" lbs");
-      
+
     } while (u8g2.nextPage()); // transfer internal memory to the display
     break;
 
@@ -376,14 +396,14 @@ void updateDisplay(pageEnum page)
       u8g2.setFont(u8g2_font_profont22_tn);
 
       u8g2.setCursor((g_colWidth * 1) -5, (g_rowHeight * 3) + 3);
-      u8g2.print(currentWeight[0]);
-      u8g2.setCursor((g_colWidth * 1) -4, (g_rowHeight * 7) - 6);
       u8g2.print(currentWeight[1]);
+      u8g2.setCursor((g_colWidth * 1) -4, (g_rowHeight * 7) - 6);
+      u8g2.print(currentWeight[0]);
       u8g2.setCursor((g_colWidth * 5) -5, (g_rowHeight * 3) + 3);
-      u8g2.print(currentWeight[3]);
-      u8g2.setCursor((g_colWidth * 5) -4, (g_rowHeight * 7) - 6);
       u8g2.print(currentWeight[2]);
- 
+      u8g2.setCursor((g_colWidth * 5) -4, (g_rowHeight * 7) - 6);
+      u8g2.print(currentWeight[3]);
+
     } while (u8g2.nextPage()); // transfer internal memory to the display
     break;
 
@@ -397,12 +417,13 @@ void updateDisplay(pageEnum page)
       // u8g2.setCursor(5, (g_rowHeight * 2) - 1);
       // u8g2.print(F("CORNERS (grams)"));
 
-      // u8g2.setFont(u8g2_font_5x7_tr);
+      u8g2.setFont(u8g2_font_5x7_tr);
 
-      // u8g2.setCursor(g_colWidth * 1, (g_rowHeight * 1) - 0);
-      // u8g2.print(F("FRONT R"));
-      // u8g2.setCursor(g_colWidth * 1, (g_rowHeight * 8) - 2);
-      // u8g2.print(F("FRONT L"));
+      u8g2.setCursor(g_colWidth * 3, (g_rowHeight * 3) - 4);
+      u8g2.print(F("<-F/R->"));
+      u8g2.setCursor(g_colWidth * 3, (g_rowHeight * 7) - 4);
+      u8g2.print(F("<-L/R->"));
+
       // u8g2.setCursor(g_colWidth * 5, (g_rowHeight * 1) - 0);
       // u8g2.print(F("REAR  R"));
       // u8g2.setCursor(g_colWidth * 5, (g_rowHeight * 8) - 2);
@@ -411,15 +432,18 @@ void updateDisplay(pageEnum page)
       // u8g2.setFont(u8g2_font_7x14B_tn);
       u8g2.setFont(u8g2_font_profont22_tn);
 
-      u8g2.setCursor((g_colWidth * 1), (g_rowHeight * 4) + 0);
+      //fRONT TO rEAR rATION
+      u8g2.setCursor((g_colWidth * 1) - 8, (g_rowHeight * 3) + 0);
       u8g2.print(ratioFront);
-      u8g2.setCursor((g_colWidth * 1), (g_rowHeight * 7) - 6);
-      u8g2.print(ratioLeft);
-      u8g2.setCursor((g_colWidth * 6), (g_rowHeight * 3) + 3);
+      u8g2.setCursor((g_colWidth * 5) + 8, (g_rowHeight * 3) + 0);
       u8g2.print(ratioRear);
-      u8g2.setCursor((g_colWidth * 6), (g_rowHeight * 7) - 6);
+
+      //Left to right Ratio
+      u8g2.setCursor((g_colWidth * 1) - 8, (g_rowHeight * 7) + 0);
+      u8g2.print(ratioLeft);
+      u8g2.setCursor((g_colWidth * 5) + 8, (g_rowHeight * 7) - 0);
       u8g2.print(ratioRight);
- 
+
     } while (u8g2.nextPage()); // transfer internal memory to the display
 
     break;

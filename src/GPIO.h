@@ -55,7 +55,8 @@ void begin_GPIO() {
 
   // Button TARE link functions
   btn_tare.attachClick(tare_click);
-  btn_tare.attachLongPressStop(tare_hold);
+  // btn_tare.attachLongPressStop(tare_hold);
+  btn_tare.attachLongPressStart(tare_hold);
 
   // Button SELECT link functions
   btn_select.attachClick(select_click);
@@ -69,7 +70,7 @@ void begin_GPIO() {
 
   delay(250);
 
-  digitalWrite(PIN_LEDred, LOW);
+  // digitalWrite(PIN_LEDred, LOW);
   digitalWrite(PIN_LEDgreen, LOW);
 
 }  // setup
@@ -86,7 +87,7 @@ void update_GPIO() {
   // btn_select.tick();
   // btn_up.tick();
   // btn_dn.tick();
- 
+
   // update leds
   if(scalesReady[0] || scalesReady[1] || scalesReady[2] || scalesReady[3]) {
     digitalWrite(PIN_LEDred, LOW);
@@ -94,7 +95,7 @@ void update_GPIO() {
   } else {
     digitalWrite(PIN_LEDred, HIGH);
     digitalWrite(PIN_LEDgreen, LOW);
-  }  
+  }
 
 }  // loop
 
