@@ -27,7 +27,7 @@ serialBuffer[16]
 
 */
 
-#include <scales.h>
+// #include <scales.h>
 
 // ====================================
 // Calabration Settings
@@ -98,6 +98,7 @@ uint8_t g_colWidth = 16; // total of 8
 // ====================================
 // Include Files
 
+#include <scales.h>
 #include <GPIO.h>
 #include <GUI.h>
 
@@ -361,11 +362,11 @@ void updateDisplay(pageEnum page)
       u8g2.print(F("TOTALS"));
 
       u8g2.setCursor(5, g_rowHeight * 4);
-      u8g2.print(currentWeight[0]);
+      u8g2.print((currentWeight[0] + currentWeight[1] + currentWeight[2] + currentWeight[3]));
       u8g2.print(" grams");
 
       u8g2.setCursor(5, g_rowHeight * 6);
-      u8g2.print((currentWeight[0] * 0.00220462));
+      u8g2.print(((currentWeight[0] + currentWeight[1] + currentWeight[2] + currentWeight[3]) * 0.00220462));
       u8g2.print(" lbs");
 
     } while (u8g2.nextPage()); // transfer internal memory to the display
@@ -435,13 +436,13 @@ void updateDisplay(pageEnum page)
       //fRONT TO rEAR rATION
       u8g2.setCursor((g_colWidth * 1) - 8, (g_rowHeight * 3) + 0);
       u8g2.print(ratioFront);
-      u8g2.setCursor((g_colWidth * 5) + 8, (g_rowHeight * 3) + 0);
+      u8g2.setCursor((g_colWidth * 6) + 0, (g_rowHeight * 3) + 0);
       u8g2.print(ratioRear);
 
       //Left to right Ratio
       u8g2.setCursor((g_colWidth * 1) - 8, (g_rowHeight * 7) + 0);
       u8g2.print(ratioLeft);
-      u8g2.setCursor((g_colWidth * 5) + 8, (g_rowHeight * 7) - 0);
+      u8g2.setCursor((g_colWidth * 6) + 0, (g_rowHeight * 7) - 0);
       u8g2.print(ratioRight);
 
     } while (u8g2.nextPage()); // transfer internal memory to the display

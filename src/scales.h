@@ -14,11 +14,11 @@ bool scalesReady[4] = {false, false, false, false}; // LF, RF, RR, LR
 const uint8_t dataPin[4] = {5, 4, 3, 7};
 const uint8_t clockPin = 6;
 
-float calib[4] = {391.597503, 421.365, 419.200, 410.236};
-unsigned long offset[4] = {625931, 0, 0, 0}; // offset values for each scale
+float calib[4] = {391.597503, 434.291259, 419.979064, 431.864074};
+unsigned long offset[4] = {625931, 463602, 198344, 181047}; // offset values for each scale
 
 unsigned long lastScaleUpdate = 0;
-const int scaleUpdateInterval = 1000;
+const int scaleUpdateInterval = 1000; 
 
 // ============================================================================
 // Ratio Variables
@@ -72,7 +72,7 @@ void getRatio_LR();
       Serial.println(F(" NOT connected or not ready!"));
       // bitClear(sysFlags, i);
       scalesReady[i] = false;
-    }
+    }    
   }
 
   Serial.println(F("Scale Setup Complete"));
@@ -113,11 +113,11 @@ void update_scales()
         else
         {
           Serial.print("\t");
-          Serial.print("N/A");
+          Serial.print(  "N/A");
           // scalesReady[i] = false;
         }
-
       }
+      delay(50);
     }
     Serial.println();
 
@@ -149,11 +149,11 @@ void tareAll() {
 
 void getRatio_FB() {
   // Calculate total front and rear weights
-    int frontWeight = currentWeight[0] + currentWeight[1]; // Front Left + Front Right
-    int rearWeight = currentWeight[2] + currentWeight[3];  // Rear Left + Rear Right
+    float frontWeight = currentWeight[0] + currentWeight[1]; // Front Left + Front Right
+    float rearWeight = currentWeight[2] + currentWeight[3];  // Rear Left + Rear Right
 
     // Calculate the total weight
-    int totalWeight = frontWeight + rearWeight;
+    float totalWeight = frontWeight + rearWeight;
 
     // Avoid division by zero
     if (totalWeight == 0) {
@@ -162,18 +162,24 @@ void getRatio_FB() {
     }
 
     // Calculate the front and rear weight percentages
-    ratioFront = (frontWeight / totalWeight) * 100.0;
-    ratioRear = (rearWeight / totalWeight) * 100.0;
+    float tempRatioFront = (frontWeight / totalWeight) * 100.0;
+    float tempRatioRear = (rearWeight / totalWeight) * 100.0;
+
+    ratioFront = tempRatioFront;
+    ratioRear = tempRatioRear;
+
+    ratioFront = constrain(ratioFront, 0, 99);
+    ratioRear = constrain(ratioRear, 0, 99);
 
 }
 
 void getRatio_LR() {
     // Calculate total front and rear weights
-    int leftWeight = currentWeight[0] + currentWeight[3];
-    int rightWeight = currentWeight[1] + currentWeight[2];
+    float leftWeight = currentWeight[0] + currentWeight[3];
+    float rightWeight = currentWeight[1] + currentWeight[2];
 
     // Calculate the total weight
-    int totalWeight = leftWeight + rightWeight;
+    float totalWeight = leftWeight + rightWeight;
 
     // Avoid division by zero
     if (totalWeight == 0) {
@@ -182,8 +188,14 @@ void getRatio_LR() {
     }
 
     // Calculate the front and rear weight percentages
-    ratioLeft = (leftWeight / totalWeight) * 100.0;
-    ratioRight = (rightWeight / totalWeight) * 100.0;
+    float tempRatioLeft = (leftWeight / totalWeight) * 100.0;
+    float tempRatioRight = (rightWeight / totalWeight) * 100.0;
+
+    ratioLeft = tempRatioLeft;
+    ratioRight = tempRatioRight;
+
+    ratioLeft = constrain(ratioLeft, 0, 99);
+    ratioRight = constrain(ratioRight, 0, 99);
 }
 
 // ====================================

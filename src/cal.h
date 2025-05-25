@@ -1,14 +1,14 @@
-// #include <HX711.h>
+#include <HX711.h> 
 
-// HX711 scale0; // Left Front
-// HX711 scale1; // Right Front
-// HX711 scale2; // Right Rear
-// HX711 scale3; // Left Rear
+HX711 scale0; //Left Front
+HX711 scale1; //Right Front
+HX711 scale2; //Right Rear
+HX711 scale3; //Left Rear
 
-// HX711 scales[4] = {scale0, scale1, scale2, scale3};
+HX711 scales[4] = {scale0, scale1, scale2, scale3};
 
-// const uint8_t dataPin[4] = {5, 4, 3, 2};
-// const uint8_t clockPin = 6;
+const uint8_t dataPin[4] = {5, 4, 3, 7};
+const uint8_t clockPin = 6;
 
 void calibrate(HX711 &myScale);
 
@@ -28,7 +28,7 @@ void setup()
   for (int i = 0; i < 4; i++)
   {
     scales[i].begin(dataPin[i], clockPin);
-    delay(250); // Give time for HX711 to power up
+    delay(750); // Give time for HX711 to power up
 
     if (scales[i].is_ready())
     {
