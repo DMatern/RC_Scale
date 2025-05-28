@@ -5,25 +5,14 @@ System uses Arduino Nano and (4) ADC and 5kg load cells. Display is a OLED with 
 
 To Do:
 
-General:
+Functions:
 
-- Add global variables
-- Add Global Flags
-- Setup Buttons with OneButton
-- Setup LED's with COntrol function (On, Off, Blink w/ rate)
-- 
+- Boot: Display Splash screen and scale status
+- Page_Total: Provide total vehicle weight (sum all four scales) in grams and lbs
+- Page_Corners: Indicate each wheel weight in grams
+- Page_Ratio: Indicated ratio from front to rear and left to right
 
-1. Startup
-	- Setup One Button
-	- Display Setup and Splash Screen
-	- Set Status for Load Cells
-2. Post Boot (Serial and OLED)
-	- Provide post boot status messages: Load Cell Connected 1-4, Boot Sucsessfull	
-3. Loop
-- Display Pages
-- Read Load Cells
-
-Claibration Data
+Claibration Data:
 
 CALIBRATION - 0
 ===========
